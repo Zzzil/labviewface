@@ -1,0 +1,2 @@
+操作:gesture_recognize
+结果:手势识别成功: 检测到手势 - Face (置信度: 0.89), Two (置信度: 0.47), 图片: 'captured_gesture.jpg'

@@ -4,6 +4,30 @@ import Python_Interface # 确保 Python_Interface.py 在同一目录或 PYTHONPA
 import cv2
 from PIL import Image, ImageTk
 import os
+import json
+import time
+
+# 结果文件路径配置
+RESULT_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "labview_data", "result.txt")
+RESULT_READY_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "labview_data", "result_ready.txt")
+
+# 确保结果文件目录存在
+os.makedirs(os.path.dirname(RESULT_FILE_PATH), exist_ok=True)
+
+def write_result_to_file(result_text):
+    """将结果写入文件，并创建一个信号文件表示数据已更新"""
+    try:
+        # 写入实际结果数据，明确指定UTF-8编码
+        with open(RESULT_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.write(result_text)
+        
+        # 创建信号文件，包含时间戳
+        with open(RESULT_READY_FILE_PATH, 'w', encoding='utf-8') as f:
+            f.write(str(time.time()))
+        
+        print(f"结果已写入文件: {RESULT_FILE_PATH}")
+    except Exception as e:
+        print(f"写入结果文件失败: {e}")
 
 class App:
     def __init__(self, root):
@@ -124,11 +148,32 @@ class App:
 
     def start_camera(self):
         if not self.cap or not self.cap.isOpened():
-            self.cap = cv2.VideoCapture(0) # Use camera 0
-            if not self.cap.isOpened():
-                self.show_result("错误：无法打开摄像头。请检查摄像头是否连接并可用。")
+            try:
+                self.cap = cv2.VideoCapture(0) # Use camera 0
+                if not self.cap.isOpened():
+                    self.show_result("错误：无法打开摄像头。请检查摄像头是否连接并可用。")
+                    messagebox.showerror("摄像头错误", "无法打开摄像头。请确保：\n1. 摄像头已正确连接\n2. 摄像头未被其他程序占用\n3. 摄像头驱动已正确安装")
+                    self.cap = None
+                    self.photo_status_label.config(text="摄像头无法打开，请使用浏览功能选择图片")
+                    return
+                
+                # 尝试读取一帧以确认摄像头可用
+                ret, test_frame = self.cap.read()
+                if not ret:
+                    self.show_result("错误：摄像头无法获取画面。请检查摄像头设置。")
+                    messagebox.showerror("摄像头错误", "无法获取摄像头画面。请确保：\n1. 摄像头权限已授予应用程序\n2. 尝试重启应用程序\n3. 如果问题持续，请尝试使用其他摄像头")
+                    if self.cap:
+                        self.cap.release()
+                    self.cap = None
+                    self.photo_status_label.config(text="摄像头无法获取画面，请使用浏览功能选择图片")
+                    return
+            except Exception as e:
+                self.show_result(f"摄像头初始化异常: {str(e)}")
+                messagebox.showerror("摄像头错误", f"摄像头初始化失败: {str(e)}")
                 self.cap = None
+                self.photo_status_label.config(text="摄像头初始化失败，请使用浏览功能选择图片")
                 return
+        
         self.camera_preview_active = True
         self.photo_status_label.config(text="") # Clear previous status
         self.show_frame_loop()
@@ -150,35 +195,48 @@ class App:
             self.video_label.image = None
             return
 
-        ret, frame = self.cap.read()
-        if ret:
-            self.current_frame = frame.copy() # Keep a copy of the current frame for capture
-            cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(cv2image)
+        try:
+            ret, frame = self.cap.read()
+            if ret:
+                self.current_frame = frame.copy() # Keep a copy of the current frame for capture
+                cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(cv2image)
 
-            # --- 添加图像缩放以适应UI ---
-            preview_max_width = 400  # 设置预览区域的最大宽度
-            original_width, original_height = img.size
-            if original_width > preview_max_width:
-                aspect_ratio = original_height / original_width
-                preview_height = int(preview_max_width * aspect_ratio)
-                # For Pillow >= 9.1.0, use Image.Resampling.LANCZOS
-                # For older versions, Image.LANCZOS or Image.ANTIALIAS might be used
-                try:
-                    img = img.resize((preview_max_width, preview_height), Image.Resampling.LANCZOS)
-                except AttributeError: # Fallback for older Pillow versions
-                    img = img.resize((preview_max_width, preview_height), Image.LANCZOS) # Or Image.ANTIALIAS
-            # --- 图像缩放结束 ---
-            
-            imgtk = ImageTk.PhotoImage(image=img)
-            self.video_label.imgtk = imgtk
-            self.video_label.config(image=imgtk)
-        else:
-            # Handle error or end of video if it were a file
+                # --- 添加图像缩放以适应UI ---
+                preview_max_width = 400  # 设置预览区域的最大宽度
+                original_width, original_height = img.size
+                if original_width > preview_max_width:
+                    aspect_ratio = original_height / original_width
+                    preview_height = int(preview_max_width * aspect_ratio)
+                    # For Pillow >= 9.1.0, use Image.Resampling.LANCZOS
+                    # For older versions, Image.LANCZOS or Image.ANTIALIAS might be used
+                    try:
+                        img = img.resize((preview_max_width, preview_height), Image.Resampling.LANCZOS)
+                    except AttributeError: # Fallback for older Pillow versions
+                        img = img.resize((preview_max_width, preview_height), Image.LANCZOS) # Or Image.ANTIALIAS
+                # --- 图像缩放结束 ---
+                
+                imgtk = ImageTk.PhotoImage(image=img)
+                self.video_label.imgtk = imgtk
+                self.video_label.config(image=imgtk)
+            else:
+                # 处理无法获取画面的情况
+                self.current_frame = None
+                self.consecutive_frame_errors = getattr(self, 'consecutive_frame_errors', 0) + 1
+                
+                # 如果连续多次无法获取画面，则停止预览并显示错误
+                if self.consecutive_frame_errors > 10:
+                    self.photo_status_label.config(text="摄像头无法获取画面，请使用浏览功能选择图片")
+                    self.stop_camera()
+                    return
+        except Exception as e:
+            # 处理其他可能的异常
+            self.photo_status_label.config(text=f"摄像头错误: {str(e)[:30]}...")
             self.current_frame = None 
         
-        if self.camera_preview_active : # Continue loop only if active
-             self.video_label.after(15, self.show_frame_loop)
+        if self.camera_preview_active:
+            # 使用较长的延迟可能会减少警告消息的频率
+            self.video_label.after(30, self.show_frame_loop)
 
 
     def capture_photo(self):
@@ -206,9 +264,9 @@ class App:
                 
                 if selected_op_key == "gesture_recognize" or selected_op_key == "face_add":
                     self.image_path_var.set(save_path) # 自动填充图像路径
-                    self.show_result(f"照片已捕获用于“{self.operation_var.get()}”，路径已填入: {os.path.basename(save_path)}。\n请填写其他必要参数后执行操作。")
+                    self.show_result(f"照片已捕获用于\"{self.operation_var.get()}\"，路径已填入: {os.path.basename(save_path)}。\n请填写其他必要参数后执行操作。")
                 elif selected_op_key == "take_photo_and_search":
-                     self.show_result(f"照片已捕获用于“{self.operation_var.get()}”并保存到 {os.path.basename(save_path)}。\n现在可以点击“执行操作”进行人脸搜索。")
+                    self.show_result(f"照片已捕获用于\"{self.operation_var.get()}\"并保存到 {os.path.basename(save_path)}。\n现在可以点击\"执行操作\"进行人脸搜索。")
 
             except Exception as e:
                 messagebox.showerror("拍照错误", f"保存照片失败: {str(e)}")
@@ -252,15 +310,21 @@ class App:
 
         if operation_key == "take_photo_and_search":
             self.camera_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
-            if not self.camera_preview_active: self.start_camera()
-            self.image_path_label.config(text="图像路径 (固定):")
-            # image_path_entry 和 browse_button 保持 disabled
+            if not self.camera_preview_active: 
+                self.start_camera()
+                # 如果摄像头不可用，允许用户直接浏览选择图片
+                if self.cap is None:
+                    self.image_path_entry.config(state="normal")
+                    self.browse_button.config(state="normal")
+            self.image_path_label.config(text="图像路径 (固定或浏览):")
             self.group_id_list_entry.config(state="normal")
-            self.photo_status_label.config(text="点击“拍照”按钮捕获图像用于搜索")
+            if self.cap and self.cap.isOpened():
+                self.photo_status_label.config(text="点击\"拍照\"按钮捕获图像用于搜索")
         
         elif operation_key == "gesture_recognize":
             self.camera_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
-            if not self.camera_preview_active: self.start_camera()
+            if not self.camera_preview_active: 
+                self.start_camera()
             self.image_path_label.config(text="图像路径 (拍照或浏览):")
             self.image_path_entry.config(state="normal")
             self.browse_button.config(state="normal")
@@ -268,17 +332,20 @@ class App:
             self.liveness_control_entry.config(state="disabled")
             self.quality_control_var.set("NONE")
             self.liveness_control_var.set("NONE")
-            self.photo_status_label.config(text="可拍照或浏览选择手势图片")
+            if self.cap and self.cap.isOpened():
+                self.photo_status_label.config(text="可拍照或浏览选择手势图片")
 
         elif operation_key == "face_add":
             self.camera_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
-            if not self.camera_preview_active: self.start_camera()
+            if not self.camera_preview_active: 
+                self.start_camera()
             self.image_path_label.config(text="图像路径 (拍照或浏览):")
             self.image_path_entry.config(state="normal")
             self.browse_button.config(state="normal")
             self.user_id_entry.config(state="normal")
             self.group_id_entry.config(state="normal")
-            self.photo_status_label.config(text="可拍照或浏览选择人脸图片进行注册")
+            if self.cap and self.cap.isOpened():
+                self.photo_status_label.config(text="可拍照或浏览选择人脸图片进行注册")
 
     def execute_action(self):
         selected_op_display = self.operation_var.get()
@@ -313,19 +380,19 @@ class App:
         if operation == "take_photo_and_search":
             actual_image_path = os.path.join(self.base_capture_dir, self.capture_filename_face_search)
             if not os.path.exists(actual_image_path):
-                self.show_result(f"错误：未找到用于搜索的人脸照片。请先使用“拍照”按钮捕获。路径: {actual_image_path}")
-                messagebox.showerror("操作错误", "未找到已拍摄的人脸搜索照片。请先点击“拍照”按钮。")
+                self.show_result(f"错误：未找到用于搜索的人脸照片。请先使用\"拍照\"按钮捕获。路径: {actual_image_path}")
+                messagebox.showerror("操作错误", "未找到已拍摄的人脸搜索照片。请先点击\"拍照\"按钮。")
                 return
             
             # 更严格检查 group_id_list
             group_id_list_trimmed = group_id_list.strip() if group_id_list else ""
             
             if not group_id_list_trimmed:
-                self.show_result(f"错误：“拍照并搜索人脸”操作需要填写“用户组ID列表”。\n"
-                                f"检测到的原始输入为: '{group_id_list}'\n"
-                                f"去除首尾空格后: '{group_id_list_trimmed}'\n"
+                self.show_result(f"错误：\"拍照并搜索人脸\"操作需要填写\"用户组ID列表\"。\n"\
+                              f"检测到的原始输入为: '{group_id_list}'\n"\
+                              f"去除首尾空格后: '{group_id_list_trimmed}'\n"\
                                 f"控件状态: {self.group_id_list_entry.cget('state')}")
-                messagebox.showerror("参数错误", "请填写有效的“用户组ID列表”。")
+                messagebox.showerror("参数错误", "请填写有效的\"用户组ID列表\"。")
                 return
             
             # 使用去除首尾空格后的值
@@ -364,10 +431,10 @@ class App:
                 if not group_id_trimmed:
                     error_detail.append(f"单个用户组ID为空 (原始值: '{group_id}')")
                 
-                error_msg = "错误：“人脸注册”操作需要填写“用户ID”和“用户组ID (单个)”。\n"
+                error_msg = "错误：\"人脸注册\"操作需要填写\"用户ID\"和\"用户组ID (单个)\"。\n"
                 error_msg += "问题: " + "、".join(error_detail)
                 self.show_result(error_msg)
-                messagebox.showerror("参数错误", "请填写“用户ID”和“用户组ID (单个)”。")
+                messagebox.showerror("参数错误", "请填写\"用户ID\"和\"用户组ID (单个)\"。")
                 return
             
             # 使用去除首尾空格后的值
@@ -391,18 +458,49 @@ class App:
                 liveness_control=liveness_control
             )
             self.show_result(f"操作 '{selected_op_display}' 完成:\n{result}")
+            
+            # 将结果输出到终端
+            print("\n===== 百度AI接口操作结果 =====")
+            print(f"操作: {operation}")
+            print(f"结果: {result}")
+            print("===== 数据传输完成 =====\n")
+            
+            # 将结果写入文件供LabVIEW读取
+            result_data = f"操作:{operation}\n结果:{result}"
+            write_result_to_file(result_data)
         except Exception as e:
-            self.show_result(f"执行操作时发生错误:\n{str(e)}")
+            error_message = f"执行操作时发生错误:\n{str(e)}"
+            self.show_result(error_message)
+            
+            # 同时将错误输出到终端
+            print("\n===== 百度AI接口操作错误 =====")
+            print(f"操作: {operation}")
+            print(f"错误: {str(e)}")
+            print("===== 数据传输失败 =====\n")
+            
             import traceback
             traceback.print_exc() # For debugging in console
 
     def show_result(self, message):
+        """显示操作结果并同时写入文件"""
         self.result_text.config(state="normal")
         self.result_text.delete(1.0, tk.END)
         self.result_text.insert(tk.END, message)
         self.result_text.config(state="disabled")
+        
+        # 将结果写入文件供LabVIEW读取
+        write_result_to_file(message)
+        
+        # 打印到控制台用于调试
+        print(f"\n===== 百度AI接口操作结果 =====")
+        print(f"结果: {message}")
+        print(f"===== 数据传输完成 =====\n")
 
 if __name__ == "__main__":
-    main_root = tk.Tk()
-    app = App(main_root)
-    main_root.mainloop()
+    # 创建一个初始的空结果文件
+    write_result_to_file("GUI程序已启动，等待操作...")
+    
+    # 创建并启动GUI
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()

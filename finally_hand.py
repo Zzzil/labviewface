@@ -9,8 +9,8 @@ import numpy as np
 import os
 
 # 百度智能云手势识别 API 的相关配置
-API_KEY = "LRR4zXxAW2HtlxL2QBcH1d"  # 更新为您提供的手势识别 API Key
-SECRET_KEY = "9G6yz3sMqzzt8SLcyruGPIrzNEvfiUwu"  # 更新为您提供的手势识别 Secret Key
+API_KEY = "EYIFXlzXD6gcYBFOGbMGIuG4"  # 更新为您提供的手势识别 API Key
+SECRET_KEY = "Bzlv8UdgRTzqLiz1ypRx9hYdZAvjSt2O"  # 更新为您提供的手势识别 Secret Key
 ACCESS_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
 GESTURE_RECOGNIZE_URL = "https://aip.baidubce.com/rest/2.0/image-classify/v1/gesture"  # 手势识别 API URL
 
