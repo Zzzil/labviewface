@@ -1,0 +1,71 @@
+# LabVIEW集成指南 - 通过文件通信与Python GUI交互
+
+## 文件通信机制
+
+Python GUI程序现在使用文件方式与LabVIEW通信，这种方式简单可靠，无需TCP连接。通信过程如下：
+
+1. Python程序将结果写入 `labview_data/result.txt` 文件
+2. 同时创建 `labview_data/result_ready.txt` 信号文件（包含时间戳）
+3. LabVIEW监视 `result_ready.txt` 文件变化，发现更新后读取 `result.txt` 内容
+
+这两个文件位于Python程序目录下的labview_data文件夹中：
+- C:\Users\12742\Desktop\APIface\labview_data\result.txt
+- C:\Users\12742\Desktop\APIface\labview_data\result_ready.txt
+
+## LabVIEW程序实现步骤
+
+1. **准备工作**
+   - 启动Python GUI程序：`python gui_main.py`
+   - 确保labview_data文件夹创建成功
+
+2. **监视信号文件**
+   - 创建一个While循环
+   - 使用"获取文件信息" (Get File Info) VI检查result_ready.txt的修改时间
+   - 当修改时间变化时，读取result.txt
+
+3. **处理结果文件**
+   - 使用"读取文件" (Read from Text File) VI读取result.txt
+   - **重要**: 确保使用UTF-8编码读取文件，否则中文会显示为乱码
+   - 文本内容格式为：`操作:{操作类型}\n结果:{结果内容}`
+   - 使用"匹配模式" (Match Pattern) VI提取操作类型和结果内容
+
+## 示例代码框图
+
+1. **监视信号文件修改时间**
+   ```
+   [While Loop] -->
+     [Get File Info](Path: C:\Users\12742\Desktop\APIface\labview_data\result_ready.txt) -->
+     [Extract Modification Date] -->
+     [Compare with Previous Date] -->
+     [If Changed] --> [Read Result File]
+   ```
+
+2. **读取和处理结果**
+   ```
+   [Read File](Path: C:\Users\12742\Desktop\APIface\labview_data\result.txt) -->
+     [Match Pattern](Pattern: "操作:(.+)\n") --> [Operation Type]
+     [Match Pattern](Pattern: "结果:(.+)") --> [Result Content]
+   ```
+
+3. **提取特定信息（例如手势类型）**
+   ```
+   [Result Content] -->
+     [Match Pattern](Pattern: "检测到手势 - (.+), 图片:") --> [Gesture Info]
+   ```
+
+## 注意事项
+
+1. 确保首先启动Python GUI程序，再启动LabVIEW程序
+2. 如果修改Python程序代码，需要重新启动Python GUI
+3. 在LabVIEW中，使用100-500毫秒的延迟控制循环速度，避免过度读取文件
+4. LabVIEW程序应包含用户界面元素显示检测到的手势或识别结果
+5. 由于文件使用UTF-8编码保存，请确保LabVIEW正确处理中文编码
+   - 在读取文件时，使用"文本文件功能"中的"打开/创建/替换文件"
+   - 在"选择文本编码"选项中选择"UTF-8"
+
+## 调试与故障排除
+
+1. 检查文件是否创建：在资源管理器中查看 labview_data 文件夹
+2. 手动检查文件内容：用记事本打开 result.txt 查看内容
+3. 确认Python程序输出中有 "结果已写入文件" 的消息
+4. 如果文件未更新，检查Python程序是否正常运行 
