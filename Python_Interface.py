@@ -247,28 +247,30 @@ def call_baidu_api(operation: str,
                     access_token=access_token,
                     image_type_hint=image_type 
                 )
+                print(f"[DEBUG] 手势识别原始结果: {raw_result}")  # 调试信息
+
+                # 检查结果格式
+                if isinstance(raw_result, dict):
+                    if "result" in raw_result and isinstance(raw_result["result"], list):
+                        gestures = []
+                        for item in raw_result["result"]:
+                            if isinstance(item, dict) and "classname" in item and "probability" in item:
+                                gesture_name = item["classname"]
+                                probability = item["probability"]
+                                gestures.append(f"{gesture_name} (置信度: {probability:.2f})")
+                        
+                        if gestures:
+                            return f"手势识别成功: 检测到手势 - {', '.join(gestures)}, 图片: '{os.path.basename(image_path)}'"
+                    
+                    if "error_code" in raw_result and raw_result["error_code"] != 0:
+                        return f"手势识别API错误: 代码='{raw_result.get('error_code', '未知')}', 信息='{raw_result.get('error_msg', '未知API错误')}', 图片: '{os.path.basename(image_path)}'"
+                
+                return f"手势识别结果: 未检测到明确手势, 图片: '{os.path.basename(image_path)}'"
+
             except requests.exceptions.RequestException as e_req:
                 return f"网络请求错误 (手势识别): 调用百度API失败 - {str(e_req)}"
             except Exception as e_gesture_init:
                 return f"手势识别执行错误: {str(e_gesture_init)}\\n{traceback.format_exc()}"
-
-            if raw_result.get("error_code") == 0 and raw_result.get("result"):
-                gestures = []
-                if isinstance(raw_result.get("result"), list): # Baidu API returns a list for gesture
-                    for item in raw_result["result"]:
-                        gestures.append(f"{item.get('classname','未知手势')} (置信度: {item.get('probability', 0.0):.2f})")
-                elif isinstance(raw_result.get("result"), dict) and 'result' in raw_result.get("result"): # Older format?
-                     for item in raw_result["result"]["result"]:
-                         gestures.append(f"{item.get('classname','未知手势')} (置信度: {item.get('probability', 0.0):.2f})")
-                
-                if gestures:
-                    return f"手势识别成功: 检测到手势 - {', '.join(gestures)}, 图片: '{os.path.basename(image_path)}'"
-                else:
-                    return f"手势识别结果: 未检测到明确手势 (或结果为空), 图片: '{os.path.basename(image_path)}'"
-            elif raw_result.get("error_code") !=0:
-                 return f"手势识别API错误: 代码='{raw_result.get('error_code', '未知')}', 信息='{raw_result.get('error_msg', '未知API错误')}', 图片: '{os.path.basename(image_path)}'"
-            else: 
-                return f"手势识别结果: API响应格式非预期或未识别到手势, 图片: '{os.path.basename(image_path)}'"
 
         elif operation == "face_add":
             if not image_path or not os.path.exists(image_path):
