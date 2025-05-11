@@ -156,7 +156,6 @@ class App:
                     self.cap = None
                     self.photo_status_label.config(text="摄像头无法打开，请使用浏览功能选择图片")
                     return
-                
                 # 尝试读取一帧以确认摄像头可用
                 ret, test_frame = self.cap.read()
                 if not ret:
@@ -173,7 +172,6 @@ class App:
                 self.cap = None
                 self.photo_status_label.config(text="摄像头初始化失败，请使用浏览功能选择图片")
                 return
-        
         self.camera_preview_active = True
         self.photo_status_label.config(text="") # Clear previous status
         self.show_frame_loop()
@@ -504,3 +502,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
     root.mainloop()
+

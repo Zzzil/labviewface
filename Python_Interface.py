@@ -189,9 +189,9 @@ def call_baidu_api(operation: str,
 
         if operation == "take_photo_and_search":
             if not image_path or not os.path.exists(image_path):
-                return f"调用错误: \"拍照并搜索人脸\"操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
+                return f"调用错误: '拍照并搜索人脸'操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
             if not group_id_list:
-                return "参数错误: \"拍照并搜索人脸\"操作需要提供用户组ID列表 (group_id_list)。"
+                return "参数错误: '拍照并搜索人脸'操作需要提供用户组ID列表 (group_id_list)。"
             
             if not hasattr(finally_face, 'get_access_token') or not hasattr(finally_face, 'face_search'):
                 return "内部错误: 人脸搜索所需功能在 finally_face.py 中未实现。"
@@ -214,28 +214,28 @@ def call_baidu_api(operation: str,
             if raw_result.get("error_code") == 0 and raw_result.get("result") and raw_result["result"].get("user_list"):
                 best_match = None
                 highest_score = 0
-                for user_info_item in raw_result["result"]["user_list"]: # Renamed to avoid conflict
+                for user_info_item in raw_result["result"]["user_list"]:
                     score = float(user_info_item["score"])
                     if score > highest_score:
                         highest_score = score
                         best_match = user_info_item
                 
-                if best_match and highest_score >= 80: 
+                if best_match and highest_score >= 80:
                     return f"操作 '拍照并搜索人脸' 完成:\n拍照并搜索成功: 用户ID='{best_match['user_id']}', 相似度得分='{highest_score:.2f}', 用户组='{best_match['group_id']}', 照片路径='{os.path.basename(image_path)}'"
-                elif best_match: 
+                elif best_match:
                     return f"操作 '拍照并搜索人脸' 完成:\n拍照并搜索无高分匹配: 最高相似度得分 {highest_score:.2f} (用户ID='{best_match['user_id']}'), 未达到阈值80, 照片路径='{os.path.basename(image_path)}'"
-                else: 
+                else:
                     return f"操作 '拍照并搜索人脸' 完成:\n拍照并搜索无匹配: 未在指定用户组中找到匹配的人脸, 照片路径='{os.path.basename(image_path)}'"
-            elif raw_result.get("error_code") == 222207: 
+            elif raw_result.get("error_code") == 222207:
                 return f"操作 '拍照并搜索人脸' 完成:\n拍照并搜索失败: 未在照片中检测到人脸, 照片路径='{os.path.basename(image_path)}' (API代码: {raw_result.get('error_code')}) - {raw_result.get('error_msg', '')}"
-            elif raw_result.get("error_code") != 0 : 
+            elif raw_result.get("error_code") != 0:
                 return f"操作 '拍照并搜索人脸' 完成:\n人脸搜索API错误: 代码='{raw_result.get('error_code', '未知')}', 信息='{raw_result.get('error_msg', '未知API错误')}', 照片路径='{os.path.basename(image_path)}'"
-            else: 
+            else:
                 return f"操作 '拍照并搜索人脸' 完成:\n拍照并搜索无匹配: 未检测到匹配的人脸或API响应格式非预期, 照片路径='{os.path.basename(image_path)}'"
             
         elif operation == "gesture_recognize":
             if not image_path or not os.path.exists(image_path):
-                return f"调用错误: \"手势识别\"操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
+                return f"调用错误: '手势识别'操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
 
             if not hasattr(finally_hand, 'get_access_token') or not hasattr(finally_hand, 'gesture_recognize'):
                 return "内部错误: 手势识别所需功能在 finally_hand.py 中未实现。"
@@ -252,9 +252,7 @@ def call_baidu_api(operation: str,
             except Exception as e_gesture_init:
                 return f"手势识别执行错误: {str(e_gesture_init)}\\n{traceback.format_exc()}"
 
-            # 百度手势识别API返回的结果格式特殊：成功时没有error_code字段
-            # 而是直接包含result字段，且有result_num字段
-            if 'result' in raw_result and 'result_num' in raw_result:
+            if raw_result.get("error_code") == 0 and raw_result.get("result"):
                 gestures = []
                 if isinstance(raw_result.get("result"), list): # Baidu API returns a list for gesture
                     for item in raw_result["result"]:
@@ -267,16 +265,16 @@ def call_baidu_api(operation: str,
                     return f"手势识别成功: 检测到手势 - {', '.join(gestures)}, 图片: '{os.path.basename(image_path)}'"
                 else:
                     return f"手势识别结果: 未检测到明确手势 (或结果为空), 图片: '{os.path.basename(image_path)}'"
-            elif raw_result.get("error_code") is not None:
+            elif raw_result.get("error_code") !=0:
                  return f"手势识别API错误: 代码='{raw_result.get('error_code', '未知')}', 信息='{raw_result.get('error_msg', '未知API错误')}', 图片: '{os.path.basename(image_path)}'"
             else: 
                 return f"手势识别结果: API响应格式非预期或未识别到手势, 图片: '{os.path.basename(image_path)}'"
 
         elif operation == "face_add":
             if not image_path or not os.path.exists(image_path):
-                return f"调用错误: \"人脸注册\"操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
+                return f"调用错误: '人脸注册'操作需要一个有效的图像文件路径，但收到 '{image_path}'。"
             if not user_id or not group_id:
-                return "参数错误: \"人脸注册\"操作需要用户ID和用户组ID。"
+                return "参数错误: '人脸注册'操作需要用户ID和用户组ID。"
 
             if not hasattr(finally_face, 'get_access_token') or not hasattr(finally_face, 'face_add'):
                 return "内部错误: 人脸注册所需功能在 finally_face.py 中未实现。"
@@ -393,3 +391,75 @@ if __name__ == '__main__':
     print("1. 摄像头正常工作且未被其他程序占用。")
     print("2. 拍摄环境光线充足，人脸清晰且占画面主体。")
     print("3. 如果您的人脸尚未注册到百度人脸库的对应组中，搜索自然无法匹配成功，但至少应能检测到人脸。")
+# --- 命令行接口的主执行部分 (如果脚本被直接运行) ---
+if __name__ == '__main__':
+    # 确保至少有操作类型和图像路径两个参数 (脚本名本身是 sys.argv[0])
+    # 对于 take_photo_and_search，image_path 是保存路径
+    if len(sys.argv) < 3:
+        print(json.dumps({"error": "错误: 缺少参数。至少需要提供操作类型和图像/保存路径。"}, ensure_ascii=False))
+        sys.exit(1)
+
+    # 从命令行参数获取操作所需的基本信息
+    operation_arg = sys.argv[1]
+    image_path_arg = sys.argv[2]
+    
+    # API密钥和秘钥：优先从命令行参数获取，若未提供则使用占位符或默认值
+    # 建议：对于生产环境或频繁使用，应通过更安全的方式管理密钥，例如环境变量或配置文件
+    api_key_arg = "MXGoFiOVcDaxC2WFLvpPwaqK" # 默认或从配置读取
+    secret_key_arg = "MVJJ3zXuaKNEDxIb7DGWAKWDQwWVnUEn" # 默认或从配置读取
+    if len(sys.argv) > 3: api_key_arg = sys.argv[3]
+    if len(sys.argv) > 4: secret_key_arg = sys.argv[4]
+
+    # 特定操作可能需要的额外参数
+    user_id_arg = None
+    group_id_arg = "1" # 默认用户组ID
+
+    if operation_arg == "face_add":
+        if len(sys.argv) > 5:
+            user_id_arg = sys.argv[5]
+        else:
+            print(json.dumps({"error": "错误: 人脸注册 (face_add) 操作需要 user_id。"}, ensure_ascii=False))
+            sys.exit(1)
+        if len(sys.argv) > 6: group_id_arg = sys.argv[6]
+    elif operation_arg == "face_search" or operation_arg == "take_photo_and_search":
+        if len(sys.argv) > 5: group_id_arg = sys.argv[5] # group_id 是可选的第五个参数 (在api_key, secret_key之后)
+        # 注意：对于 take_photo_and_search，如果命令行参数顺序固定为 op, path, ak, sk, group_id，
+        # 那么 group_id 会是 sys.argv[5]。如果 ak, sk 省略，则 group_id 可能是 sys.argv[3]。
+        # 这里假设 ak, sk 总是提供或有默认值，group_id 是它们之后的参数。
+        # 为了更清晰，可以调整参数解析逻辑，例如使用 argparse 模块。
+        # 当前的简单实现：如果提供了第五个参数，就认为是 group_id。
+        # 如果 API Key 和 Secret Key 是通过命令行传入的，那么 group_id 应该是 sys.argv[5] (如果 api_key, secret_key 在 image_path 之后)
+        # 或者 sys.argv[7] (如果 api_key, secret_key 在 user_id 之后，但这不适用于 face_search)
+        # 假设顺序: python Python_Interface.py <operation> <image_path> [api_key] [secret_key] [group_id_for_search]
+        # 如果 api_key 和 secret_key 是通过 sys.argv[3] 和 sys.argv[4] 传入的，那么 group_id 就是 sys.argv[5]
+        if len(sys.argv) > 5 and operation_arg != "face_add": # 避免与 face_add 的 user_id 冲突
+             # 如果 api_key 和 secret_key 是通过 sys.argv[3] 和 sys.argv[4] 传入的
+            if len(sys.argv) == 6: # op, path, ak, sk, group_id
+                 group_id_arg = sys.argv[5]
+            elif len(sys.argv) > 5 and not (len(sys.argv) > 3 and sys.argv[3] != api_key_arg) and not (len(sys.argv) > 4 and sys.argv[4] != secret_key_arg):
+                # 这个条件复杂了，简化：如果提供了第5个参数，且不是face_add，就认为是group_id
+                # 更好的做法是使用argparse
+                pass # group_id_arg 保持默认 "1" 或从上面已设置的 sys.argv[5] 获取
+
+    # 调用核心函数处理请求
+    response_json = call_baidu_api(
+        operation_arg,
+        image_path_arg,
+        api_key_arg,
+        secret_key_arg,
+        user_id=user_id_arg,
+        group_id=group_id_arg
+    )
+    
+    # 打印最终的JSON响应
+    print(response_json)
+
+    # 根据返回结果决定退出码 (可选)
+    try:
+        response_data = json.loads(response_json)
+        if "error" in response_data:
+            sys.exit(1) # 如果响应中包含错误，以状态码1退出
+        else:
+            sys.exit(0) # 成功则以状态码0退出
+    except json.JSONDecodeError:
+        sys.exit(2) # 如果响应不是有效的JSON，以状态码2退出
